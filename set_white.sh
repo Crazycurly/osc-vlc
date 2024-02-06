@@ -1,0 +1,1 @@
+ sudo sh -c "TERM=linux setterm -foreground white -clear all >/dev/tty0"
