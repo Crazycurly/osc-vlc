@@ -2,11 +2,13 @@ import time
 import threading
 import vlc
 
+
 class PlayerController(threading.Thread):
     def __init__(self, video_paths, *args):
         # Initialize the thread
         super().__init__()
         self.video_paths = video_paths  # List of video file paths
+        self.loop_mode = 1  # 0: no loop, 1: loop all, 2: loop one
 
         # Initialize VLC instance with additional arguments if provided
         if args:
@@ -21,13 +23,16 @@ class PlayerController(threading.Thread):
 
     def run(self):
         # Attach event listener for MediaPlayerEndReached event to handle video completion
-        self.player.event_manager().event_attach(
-            vlc.EventType.MediaPlayerEndReached, self.on_player_exit)
+        self.player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self.on_player_exit)
         # Thread's main loop to keep playing videos until stop_event is set
         while not self.stop_event.is_set():
-            if self.player_state == "exited":
+            if self.player_state == "exited" and self.loop_mode != 0:
                 self.play_video()
             time.sleep(0.01)  # Sleep to prevent high CPU usage
+
+    def set_loop_mode(self, mode):
+        # Set the loop mode for the player
+        self.loop_mode = mode
 
     def set_uri(self, uri):
         # Set the media resource locator for the player
@@ -102,7 +107,8 @@ class PlayerController(threading.Thread):
 
     def set_ratio(self, ratio):
         # Set the video aspect ratio （ex:"16:9","4:3"）
-        self.player.video_set_scale(0)  # Disable default scaling, otherwise the aspect ratio won't change
+        # Disable default scaling, otherwise the aspect ratio won't change
+        self.player.video_set_scale(0)
         self.player.video_set_aspect_ratio(ratio)  # Set aspect ratio
 
     def on_player_exit(self, event):
@@ -110,9 +116,12 @@ class PlayerController(threading.Thread):
         print("Player exited")
         self.player_state = "exited"
         # Automatically move to the next video
-        self.current_video_index = (self.current_video_index + 1) % len(self.video_paths)
+        if self.loop_mode == 1:
+            self.current_video_index = (self.current_video_index + 1) % len(self.video_paths)
 
-    def play_video(self):
+    def play_video(self, index=None):
+        if index is not None:
+            self.current_video_index = index
         # Play the current video
         print("Playing video...")
         self.player_state = "playing"
